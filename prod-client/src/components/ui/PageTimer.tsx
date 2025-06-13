@@ -1,46 +1,30 @@
-import  { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
 import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-export default function PomodoroTimer() {
-  const [time, setTime] = useState(1500); // 25 minutes default
-  const [isRunning, setIsRunning] = useState(false);
-  const [mode, setMode] = useState<'pomodoro' | 'shortBreak' | 'longBreak'>('pomodoro'); // pomodoro, shortBreak, longBreak
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);;
+interface PomodoroTimerProps {
+  time: number;
+  isRunning: boolean;
+  mode: 'pomodoro' | 'shortBreak' | 'longBreak';
+  onStart: () => void;
+  onPause: () => void;
+  onReset: () => void;
+  onModeChange: (mode: 'pomodoro' | 'shortBreak' | 'longBreak') => void;
+}
 
+export default function PomodoroTimer({
+  time,
+  isRunning,
+  mode,
+  onStart,
+  onPause,
+  onReset,
+  onModeChange
+}: PomodoroTimerProps) {
   const modes = {
     pomodoro: { time: 1500, label: 'Pomodoro', color: 'text-red-400' }, // 25 min
     shortBreak: { time: 300, label: 'Short Break', color: 'text-green-400' }, // 5 min
     longBreak: { time: 900, label: 'Long Break', color: 'text-cyan-400' } // 15 min
   };
-
-
-useEffect(() => {
-  if (isRunning && time > 0) {
-    intervalRef.current = setInterval(() => {
-      setTime(prevTime => {
-        if (prevTime <= 1) {
-          setIsRunning(false);
-          return 0;
-        }
-        return prevTime - 1;
-      });
-    }, 1000);
-  } else {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }
-
-  return () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-}, [isRunning, time]);
-
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -48,28 +32,17 @@ useEffect(() => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStart = () => {
-    setIsRunning(true);
-  };
-
-  const handlePause = () => {
-    setIsRunning(false);
-  };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setTime(modes[mode].time);
-  };
-
-  const handleModeChange = (newMode: 'pomodoro' | 'shortBreak' | 'longBreak') => {
-  setIsRunning(false);
-  setMode(newMode);
-  setTime(modes[newMode].time);
-};
-
   const getProgress = () => {
     const totalTime = modes[mode].time;
     return ((totalTime - time) / totalTime) * 100;
+  };
+
+  const handleToggle = () => {
+    isRunning ? onPause() : onStart();
+  };
+
+  const handleQuickSwitch = () => {
+    onModeChange(mode === 'pomodoro' ? 'shortBreak' : 'pomodoro');
   };
 
   return (
@@ -148,7 +121,7 @@ useEffect(() => {
           {Object.entries(modes).map(([key, modeData]) => (
             <button
               key={key}
-              onClick={() => handleModeChange(key as 'pomodoro' | 'shortBreak' | 'longBreak')}
+              onClick={() => onModeChange(key as 'pomodoro' | 'shortBreak' | 'longBreak')}
               disabled={isRunning}
               className={`px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
                 mode === key
@@ -206,7 +179,7 @@ useEffect(() => {
         {/* Control Buttons */}
         <div className="flex items-center gap-6">
           <Button
-            onClick={handleReset}
+            onClick={onReset}
             variant="ghost"
             size="lg"
             className="w-14 h-14 rounded-full text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
@@ -215,7 +188,7 @@ useEffect(() => {
           </Button>
 
           <Button
-            onClick={isRunning ? handlePause : handleStart}
+            onClick={handleToggle}
             disabled={time === 0}
             size="lg"
             className="w-20 h-20 rounded-full bg-gray-800 text-white shadow-lg hover:shadow-xl hover:scale-105 hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 border border-gray-600"
@@ -228,7 +201,7 @@ useEffect(() => {
           </Button>
 
           <Button
-            onClick={() => handleModeChange(mode === 'pomodoro' ? 'shortBreak' : 'pomodoro')}
+            onClick={handleQuickSwitch}
             variant="ghost"
             size="lg"
             disabled={isRunning}

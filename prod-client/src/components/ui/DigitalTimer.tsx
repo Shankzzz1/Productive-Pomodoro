@@ -1,11 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-// import { Card, CardContent } from '@/components/ui/card';
 import { Play, Pause, RotateCcw, Plus, Minus } from 'lucide-react';
 
 interface AnimatedDigitProps {
   digit: string;
   index: number;
+}
+
+export interface DigitalTimerProps {
+  time: number;
+  isRunning: boolean;
+  onStart: () => void;
+  onPause: () => void;
+  onReset: () => void;
+  onAdjustTime: (delta: number) => void;
 }
 
 const AnimatedDigit: React.FC<AnimatedDigitProps> = ({ digit, index }) => {
@@ -45,12 +53,14 @@ const AnimatedDigit: React.FC<AnimatedDigitProps> = ({ digit, index }) => {
   );
 };
 
-const DigitalTimer: React.FC = () => {
-  const [totalSeconds, setTotalSeconds] = useState(300); // 5 minutes default
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(totalSeconds);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
+const DigitalTimer: React.FC<DigitalTimerProps> = ({
+  time,
+  isRunning,
+  onStart,
+  onPause,
+  onReset,
+  onAdjustTime
+}) => {
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -61,58 +71,18 @@ const DigitalTimer: React.FC = () => {
     return timeString.split('').map(char => char === ':' ? ':' : char);
   };
 
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, timeLeft]);
-
-  const handleStart = () => {
-    setIsRunning(!isRunning);
+  const handleToggle = () => {
+    isRunning ? onPause() : onStart();
   };
 
-  const handleReset = () => {
-    setIsRunning(false);
-    setTimeLeft(totalSeconds);
-  };
-
-  const adjustTime = (delta: number) => {
-    if (!isRunning) {
-      const newTime = Math.max(0, Math.min(5999, totalSeconds + delta)); // Max 99:59
-      setTotalSeconds(newTime);
-      setTimeLeft(newTime);
-    }
-  };
-
-  const timeString = formatTime(timeLeft);
+  const timeString = formatTime(time);
   const digits = getDigits(timeString);
-  const progress = totalSeconds > 0 ? ((totalSeconds - timeLeft) / totalSeconds) * 100 : 0;
 
   return (
     <div className="w-full">
       <div className="text-center space-y-4">
         <h2 className="text-lg font-semibold text-gray-800">Focus Timer</h2>
         
-        {/* Timer Display */}
         <div className="bg-black text-green-400 rounded-lg p-4 shadow-inner">
           <div className="flex items-center justify-center space-x-1">
             {digits.map((digit, index) => (
@@ -125,20 +95,11 @@ const DigitalTimer: React.FC = () => {
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-green-400 to-blue-500 rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* Time Adjustment - More Compact */}
         <div className="flex items-center justify-center space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => adjustTime(-60)}
+            onClick={() => onAdjustTime(-60)}
             disabled={isRunning}
             className="hover:bg-red-50 text-xs px-2 py-1"
           >
@@ -148,7 +109,7 @@ const DigitalTimer: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => adjustTime(-10)}
+            onClick={() => onAdjustTime(-10)}
             disabled={isRunning}
             className="hover:bg-red-50 text-xs px-2 py-1"
           >
@@ -158,7 +119,7 @@ const DigitalTimer: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => adjustTime(10)}
+            onClick={() => onAdjustTime(10)}
             disabled={isRunning}
             className="hover:bg-green-50 text-xs px-2 py-1"
           >
@@ -168,7 +129,7 @@ const DigitalTimer: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => adjustTime(60)}
+            onClick={() => onAdjustTime(60)}
             disabled={isRunning}
             className="hover:bg-green-50 text-xs px-2 py-1"
           >
@@ -177,10 +138,9 @@ const DigitalTimer: React.FC = () => {
           </Button>
         </div>
 
-        {/* Control Buttons - More Compact */}
         <div className="flex justify-center space-x-3">
           <Button
-            onClick={handleStart}
+            onClick={handleToggle}
             size="sm"
             className={`px-4 py-2 font-medium transition-all duration-200 ${
               isRunning 
@@ -201,7 +161,7 @@ const DigitalTimer: React.FC = () => {
             )}
           </Button>
           <Button
-            onClick={handleReset}
+            onClick={onReset}
             variant="outline"
             size="sm"
             className="px-4 py-2 font-medium hover:bg-gray-50"
@@ -211,9 +171,8 @@ const DigitalTimer: React.FC = () => {
           </Button>
         </div>
 
-        {/* Status */}
         <div className="text-sm text-gray-500 min-h-[20px]">
-          {timeLeft === 0 ? (
+          {time === 0 ? (
             <span className="text-red-500 font-semibold animate-pulse">Time's Up!</span>
           ) : isRunning ? (
             <span className="text-green-500">Timer Running...</span>
