@@ -2,12 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User, { IUser } from '../model/User';
 
-interface AuthenticatedRequest extends Request {
+// Export the interface directly (remove the duplicate interface)
+export interface AuthenticatedRequest extends Request {
   user?: IUser | null;
-}
-
-interface JwtPayload {
-  id: string;
 }
 
 interface JwtPayload {
@@ -35,4 +32,5 @@ const protect = async (req: AuthenticatedRequest, res: Response, next: NextFunct
   }
 };
 
+// Export only the protect middleware (since AuthenticatedRequest is already exported above)
 export { protect };

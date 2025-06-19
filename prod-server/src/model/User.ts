@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema,Types } from 'mongoose';
+import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
@@ -6,6 +6,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
+  rooms: Types.ObjectId[];
   comparePassword: (enteredPassword: string) => Promise<boolean>;
 }
 
@@ -27,6 +28,12 @@ const userSchema = new Schema<IUser>(
       required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters'],
     },
+    rooms: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Room',
+      },
+    ],
   },
   {
     timestamps: true,
