@@ -1,46 +1,38 @@
 import { Request, Response } from 'express';
 import { Room } from '../model/Room';
-import  User  from '../model/User';
+import User from '../model/User';
 import { createRoomSchema } from '../validators/roomvalidator';
-import { AuthenticatedRequest } from '../middleware/auth';
 
-export const createRoom = async (req: AuthenticatedRequest, res: Response) => {
+export const createRoom = async (req: Request, res: Response) => {
   try {
-    // Validate request body
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
     const { error } = createRoomSchema.validate(req.body);
     if (error) {
-      res.status(400).json({ message: error.details[0].message });
-      return; // Explicit return to stop execution
+      return res.status(400).json({ message: error.details[0].message });
     }
 
-    // Get authenticated user from request
-    const userId = req.user?._id;
-    if (!userId) {
-      res.status(401).json({ message: 'Not authorized' });
-      return;
-    }
-
-    // Create new room
     const room = new Room({
       name: req.body.name,
       visibility: req.body.visibility,
-      owner: userId,
+      password: req.body.visibility === 'private' ? req.body.password : undefined,
+      owner: req.user._id,
       roomCode: generateRoomCode(),
       pomodoroDuration: req.body.pomodoroDuration,
       shortBreakDuration: req.body.shortBreakDuration,
       longBreakDuration: req.body.longBreakDuration,
-      members: [userId]
+      members: [req.user._id]
     });
 
     await room.save();
 
-    // Add room to user's rooms
-    await User.findByIdAndUpdate(userId, {
+    await User.findByIdAndUpdate(req.user._id, {
       $addToSet: { rooms: room._id }
     });
 
-    // Send response without returning it
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Room created successfully',
       room: {
         id: room._id,
@@ -51,33 +43,24 @@ export const createRoom = async (req: AuthenticatedRequest, res: Response) => {
         shortBreakDuration: room.shortBreakDuration,
         longBreakDuration: room.longBreakDuration,
         owner: {
-          id: req.user?._id,
-          name: req.user?.name,
-          email: req.user?.email
+          id: req.user._id,
+          name: req.user.name,
+          email: req.user.email
         },
         createdAt: room.createdAt
       }
     });
 
   } catch (error) {
-  console.error('Error creating room:', error);
-  
-  // Type guard for MongoDB duplicate key error
-  if (isMongoError(error) && error.code === 11000 && error.keyPattern?.roomCode) {
-    res.status(409).json({ message: 'Room code already exists. Please try again.' });
-    return;
+    console.error('Error creating room:', error);
+    return res.status(500).json({ message: 'Server error while creating room' });
   }
-
-  res.status(500).json({ message: 'Server error while creating room' });
-}
-
-// Helper type guard
-function isMongoError(error: unknown): error is { code: number; keyPattern: Record<string, unknown> } {
-  return typeof error === 'object' && error !== null && 'code' in error && 'keyPattern' in error;
-}
 };
 
-// Helper function to generate room code
+function isMongoError(error: any): error is { code: number; keyPattern: Record<string, unknown> } {
+  return typeof error === 'object' && error !== null && 'code' in error && 'keyPattern' in error;
+}
+
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
